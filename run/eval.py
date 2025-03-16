@@ -17,7 +17,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 
 from src.model import CustomCNN
-from src.utilities.mlflow import mlflow_monitoring, MlflowConfig
+from src.utils.mlflow import mlflow_monitoring, MlflowConfig
 from src import run_path
 
 
