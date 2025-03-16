@@ -24,6 +24,7 @@ dependencies = [
     "tyro>=0.9.17",
     "black>=25.1.0",
     "imageio[ffmpeg]>=2.37.0",
+    "loguru>=0.7.3",
 ]
 
 [tool.poetry]

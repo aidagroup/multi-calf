@@ -60,7 +60,7 @@ class ExperimentConfig:
     """Whether to use State Dependent Exploration"""
     sde_sample_freq: int = -1
     """Sample frequency for SDE"""
-    save_model_every_steps: int = 500
+    save_model_every_steps: int = 1000
     """Save model checkpoint every N steps"""
     device: str = "cuda:0"
     """Device to use for training"""

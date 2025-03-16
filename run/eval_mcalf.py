@@ -19,6 +19,14 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from src.model import CustomCNN
 from src.utils.mlflow import mlflow_monitoring, MlflowConfig
 from src import run_path
+from src.wrapper.multicalf import MultiCALFWrapper
+
+
+@dataclass
+class MultiCALFConfig:
+    relaxprob_init: float = 0.5
+    relaxprob_factor: float = 0.99
+    calf_change_rate: float = 0.01
 
 
 @dataclass
@@ -33,8 +41,10 @@ class EvalConfig:
     """Number of frames to stack"""
 
     # Checkpoint and model configuration
-    checkpoint_path: Optional[Path] = None
-    """Path to the model checkpoint to load"""
+    base_checkpoint_path: Optional[Path] = None
+    """Path to the base model checkpoint to load"""
+    alt_checkpoint_path: Optional[Path] = None
+    """Path to the alternative model checkpoint to load"""
     device: str = "cuda:0"
     """Device to use for evaluation"""
 
@@ -51,13 +61,15 @@ class EvalConfig:
     """Whether to render the environment"""
     render_fps: int = 20
     """FPS for the output video"""
-    output_path: Path = run_path / "artifacts" / "videos"
+    output_path: Path = run_path / "artifacts" / "videos" / "mcalf"
     """Path to save the output video"""
+
+    mcalf: MultiCALFConfig = field(default_factory=lambda: MultiCALFConfig())
 
     # Logging and artifacts
     mlflow: MlflowConfig = field(
         default_factory=lambda: MlflowConfig(
-            experiment_name="pendulum_evaluation",
+            experiment_name="pendulum_mcalf_evaluation",
         )
     )
     """MLflow configuration for experiment tracking"""
@@ -65,17 +77,18 @@ class EvalConfig:
 
 @mlflow_monitoring()
 def main(config: EvalConfig):
-    if config.checkpoint_path is None:
-        raise ValueError("checkpoint_path must be provided")
+    if config.base_checkpoint_path is None:
+        raise ValueError("base_checkpoint_path must be provided")
+    if config.alt_checkpoint_path is None:
+        raise ValueError("alt_checkpoint_path must be provided")
 
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
     set_random_seed(config.seed)
-    matplotlib.use("Agg")
 
     config.output_path.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading model from checkpoint: {config.checkpoint_path}")
+    print(f"Loading model from checkpoint: {config.base_checkpoint_path}")
 
     env = make_vec_env(
         env_id=config.env_id,
@@ -90,15 +103,15 @@ def main(config: EvalConfig):
     env = VecTransposeImage(env)
 
     # Load normalization stats if provided
-    vecnormalize_path = config.checkpoint_path.parent.parent / "vecnormalize.pkl"
+    vecnormalize_path = config.base_checkpoint_path.parent.parent / "vecnormalize.pkl"
     if vecnormalize_path.exists():
         print(f"Loading normalization stats from: {vecnormalize_path}")
         env = VecNormalize.load(vecnormalize_path, env)
         env.training = False
         env.norm_reward = False
 
-    model = PPO.load(
-        config.checkpoint_path,
+    base_model = PPO.load(
+        config.base_checkpoint_path,
         env=env,
         custom_objects={
             "features_extractor_class": CustomCNN,
@@ -110,7 +123,28 @@ def main(config: EvalConfig):
         seed=config.seed,
     )
 
-    print(f"Model loaded successfully. Starting evaluation for {config.n_steps} steps.")
+    alt_model = PPO.load(
+        config.alt_checkpoint_path,
+        env=env,
+        device=config.device,
+        seed=config.seed,
+        custom_objects={
+            "features_extractor_class": CustomCNN,
+            "features_extractor_kwargs": dict(
+                features_dim=256, num_frames=config.n_frames_stack
+            ),
+        },
+    )
+
+    env = MultiCALFWrapper(
+        env,
+        model_base=base_model,
+        model_alt=alt_model,
+        calf_change_rate=config.mcalf.calf_change_rate,
+        relaxprob_init=config.mcalf.relaxprob_init,
+        relaxprob_factor=config.mcalf.relaxprob_factor,
+        seed=config.seed,
+    )
 
     if config.render:
         frames = {i: [] for i in range(config.n_envs)}
@@ -118,7 +152,7 @@ def main(config: EvalConfig):
 
     obs = env.reset()
     for _ in range(config.n_steps):
-        action, _ = model.predict(obs, deterministic=config.deterministic)
+        action, _ = base_model.predict(obs, deterministic=config.deterministic)
 
         obs, reward, done, info = env.step(action)
         for i in range(config.n_envs):
@@ -135,7 +169,7 @@ def main(config: EvalConfig):
         video_path = config.output_path / (
             config.env_id
             + "_"
-            + config.checkpoint_path.stem.split("_")[1]
+            + config.base_checkpoint_path.stem.split("_")[1]
             + "_"
             + str(config.seed)
         )
