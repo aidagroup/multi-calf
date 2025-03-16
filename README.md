@@ -58,9 +58,9 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
    cd multi-calf
    ```
 
-2. Create a virtual environment with Python 3.12.2:
+2. Create a virtual environment with Python 3.13.2:
    ```bash
-   uv venv --python=3.12.2
+   uv venv --python=3.13.2
    uv sync
    ```
 
