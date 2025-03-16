@@ -2,8 +2,6 @@
 
 import gymnasium as gym
 from pathlib import Path
-from gymnasium.wrappers import TimeLimit
-from src.wrapper.common_wrapper import ResizeObservation
 from gymnasium.envs.registration import WrapperSpec
 
 repo_root = Path(__file__).parent.parent
@@ -11,8 +9,8 @@ src_path = repo_root / "src"
 run_path = repo_root / "run"
 
 gym.register(
-    id="VisualPendulumNoArrowClassicReward",
-    entry_point="src.envs.pendulum_visual:PendulumVisualNoArrowParallelizable",
+    id="VisualPendulumClassicReward",
+    entry_point="src.envs.visual_pendulum:VisualPendulum",
     disable_env_checker=True,
     order_enforce=False,
     max_episode_steps=200,
@@ -30,8 +28,8 @@ gym.register(
 )
 
 gym.register(
-    id="VisualPendulumNoArrowUpswingReward",
-    entry_point="src.envs.pendulum_visual:PendulumVisualNoArrowParallelizable",
+    id="VisualPendulumUpswingReward",
+    entry_point="src.envs.visual_pendulum:VisualPendulum",
     disable_env_checker=True,
     order_enforce=False,
     max_episode_steps=200,

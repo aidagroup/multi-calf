@@ -23,6 +23,7 @@ dependencies = [
     "opencv-python==4.9.0.80",
     "tyro>=0.9.17",
     "black>=25.1.0",
+    "imageio[ffmpeg]>=2.37.0",
 ]
 
 [tool.poetry]
