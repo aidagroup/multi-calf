@@ -85,13 +85,13 @@ All experiments can be run using UV's `run` command to ensure proper environment
 To train a PPO agent:
 
 ```bash
-uv run run/train_ppo.py --env-id Pendulum-v1 --seed 42 --total-timesteps 500000
+uv run run/train_ppo.py 
 ```
 
 To train a TD3 agent:
 
 ```bash
-uv run run/train_td3.py --env-id Pendulum-v1 --seed 42 --total-timesteps 500000
+uv run run/train_td3.
 ```
 
 Command-line parameters provide extensive customization:
@@ -99,14 +99,6 @@ Command-line parameters provide extensive customization:
 ```bash
 # View all available options
 uv run run/train_ppo.py --help
-```
-
-### Evaluation
-
-To evaluate a standard model:
-
-```bash
-uv run run/eval.py --env-id Pendulum-v1 --checkpoint-path run/artifacts/ppo_checkpoints/ppo_checkpoint_500000_steps.zip
 ```
 
 ### Multi-CALF Evaluation
