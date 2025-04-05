@@ -1,136 +1,168 @@
 # Multi-CALF: Critic as a Lyapunov Function
 
-This repository contains the demo implementation of the Multi-CALF (Critic as a Lyapunov Function) approach described in the paper [TODO PASTE PAPER NAME HERE].
+This repository implements the Multi-CALF (Critic As a Lyapunov Function) approach for reinforcement learning, ensuring stability and safety during training and deployment.
 
-## Project Overview
+## Overview
 
-Multi-CALF is a reinforcement learning approach that uses the critic function as a Lyapunov function to ensure stability and safety during training and deployment. This repository provides a demonstration of how Multi-CALF works in practice.
+Multi-CALF is a technique that leverages the critic function as a Lyapunov function to guarantee stability in reinforcement learning agents. The approach facilitates safe exploration and robust policy development by using multiple critics to validate actions before execution.
 
-We have constructed a visual pendulum environment specifically for this demonstration, which provides image-based observations of a pendulum system. This allows for testing the Multi-CALF approach in a setting where the agent must learn from high-dimensional visual inputs rather than low-dimensional state representations.
+Key features:
+- Safety-aware training with Lyapunov stability guarantees
+- Environmentally-conscious action selection
+- Support for visual observations in complex control tasks
+- Compatible with standard RL algorithms (PPO, TD3)
+- Performance tracking via MLflow
 
 ## Repository Structure
 
 ```
 multi-calf/
-├── run/                      # Scripts for running experiments
-│   ├── train_ppo_vispendulum.py  # Training script for PPO on visual pendulum
-│   ├── eval.py               # Evaluation script
+├── run/                      # Experiment scripts
+│   ├── train_ppo.py          # Training script for PPO
+│   ├── train_td3.py          # Training script for TD3
+│   ├── eval.py               # Standard evaluation script
+│   ├── eval_mcalf.py         # Multi-CALF evaluation script
 │   ├── artifacts/            # Saved model artifacts
 │   └── mlruns/               # MLflow experiment tracking data
-├── src/                      # Source code
-│   ├── envs/                 # Environment implementations
-│   │   ├── visual_pendulum.py  # Visual pendulum environment
-│   │   └── assets/           # Visual assets for environments
-│   ├── wrapper/              # Environment wrappers
-│   │   ├── calf_wrapper.py   # CALF wrapper implementation
-│   │   ├── common_wrapper.py # Common wrapper utilities
-│   │   └── multicalf.py      # Multi-CALF implementation
-│   ├── utils/                # Utility functions
-│   │   └── mlflow.py         # MLflow utilities
-│   └── model.py              # Neural network model definitions
-├── pyproject.toml            # Project dependencies and configuration
+├── src
+├── pyproject.toml            # Dependencies and configuration
 └── uv.lock                   # Lock file for uv package manager
 ```
 
 ## Installation
 
-This project uses [uv](https://github.com/astral-sh/uv) for dependency management. uv is a fast, reliable Python package installer and resolver.
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management - a fast and reliable Python package installer.
 
-### Installing uv
+### Prerequisites
 
-To install uv, run:
-
-```bash
-curl -sSf https://astral.sh/uv/install.sh | bash
-```
-
-Or on Windows:
+For rendering functionality, install the following dependencies:
 
 ```bash
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+sudo apt-get install -y libosmesa6-dev libgl1-mesa-dev libglfw3
 ```
 
-### Setting up the environment
+### Setting up with UV
 
-1. Clone the repository:
+1. **Install UV**:
+
+   ```bash
+   # Linux/macOS
+   curl -sSf https://astral.sh/uv/install.sh | bash
+
+   # Windows
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+2. **Clone the repository**:
+
    ```bash
    git clone https://github.com/yourusername/multi-calf.git
    cd multi-calf
    ```
 
-2. Create a virtual environment with Python 3.13.2:
+3. **Create and activate the environment**:
+
    ```bash
-   uv venv --python=3.13.2
+   # Create a virtual environment with specific Python version
+   uv venv --python=3.12
+   
+   # Activate the environment
+   # On Linux/macOS:
+   source .venv/bin/activate
+   # On Windows:
+   .venv\Scripts\activate
+   
+   # Install dependencies from lock file
    uv sync
    ```
 
-## Running Experiments
+## Running Experiments with UV
+
+All experiments can be run using UV's `run` command to ensure proper environment resolution.
 
 ### Training
 
-To train a PPO agent on the visual pendulum environment:
+To train a PPO agent:
 
 ```bash
-uv run run/train_ppo_vispendulum.py
+uv run run/train_ppo.py --env-id Pendulum-v1 --seed 42 --total-timesteps 500000
 ```
 
-You can customize the training parameters by modifying the arguments:
+To train a TD3 agent:
 
 ```bash
-uv run run/train_ppo_vispendulum.py --seed 42 --total-timesteps 500000 --learning-rate 3e-4
+uv run run/train_td3.py --env-id Pendulum-v1 --seed 42 --total-timesteps 500000
 ```
 
-For the full details about training parameters type
+Command-line parameters provide extensive customization:
+
 ```bash
-uv run run/train_ppo_vispendulum.py --help
+# View all available options
+uv run run/train_ppo.py --help
 ```
 
 ### Evaluation
 
-To evaluate a trained model:
+To evaluate a standard model:
 
 ```bash
-uv run run/eval.py --checkpoint-path run/artifacts/path/to/your/checkpoint
+uv run run/eval.py --env-id Pendulum-v1 --checkpoint-path run/artifacts/ppo_checkpoints/ppo_checkpoint_500000_steps.zip
 ```
 
-## Tracking Experiments
+### Multi-CALF Evaluation
 
-This project uses MLflow for experiment tracking. You can view the experiment results by running:
+To evaluate using the Multi-CALF approach (requires two trained models):
+
+```bash
+uv run run/eval_mcalf.py \
+  --env-id Pendulum-v1 \
+  --base-checkpoint-path run/artifacts/ppo_checkpoints/ppo_checkpoint_500000_steps.zip \
+  --alt-checkpoint-path run/artifacts/ppo_checkpoints/ppo_checkpoint_250000_steps.zip \
+  --mcalf.relaxprob-init 1.0 \
+  --mcalf.relaxprob-factor 0.999 \
+  --mcalf.calf-change-rate 0.01
+```
+
+## Experiment Tracking
+
+View experiment results using MLflow:
 
 ```bash
 cd run
 mlflow ui --port=5000
 ```
 
-Then navigate to http://localhost:5000 in your web browser.
+Then navigate to http://localhost:5000 in your browser.
+
+## Troubleshooting UV
+
+If you encounter issues with UV:
+
+1. **Cache problems**: Clear the UV cache
+   ```bash
+   uv cache clean
+   ```
+
+2. **Package resolution issues**: Update UV and retry
+   ```bash
+   uv self update
+   uv sync
+   ```
+
+3. **Environment conflicts**: Create a fresh environment
+   ```bash
+   rm -rf .venv
+   uv venv --python=3.12
+   uv sync
+   ```
 
 ## License
 
 MIT License
-
-Copyright (c) 2024
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ## Citation
 
 If you use this code in your research, please cite:
 
 ```
-[TODO: Add citation information for the paper]
+[Citation information for the paper]

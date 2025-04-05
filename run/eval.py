@@ -4,11 +4,15 @@ import tyro
 import matplotlib
 import imageio
 import mlflow
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
 
-from stable_baselines3 import PPO
+# Set MuJoCo to use software rendering with OSMesa before importing any mujoco-related libraries
+os.environ["MUJOCO_GL"] = "osmesa"
+
+from stable_baselines3 import PPO, TD3
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import VecTransposeImage
 from stable_baselines3.common.vec_env import VecFrameStack
@@ -27,10 +31,8 @@ class EvalConfig:
     """Random seed for reproducibility"""
 
     # Environment configuration
-    env_id: str = "VisualPendulumClassicReward"
+    env_id: str = "Hopper-v4"
     """Environment ID to use"""
-    n_frames_stack: int = 4
-    """Number of frames to stack"""
 
     # Checkpoint and model configuration
     checkpoint_path: Optional[Path] = None
@@ -43,13 +45,13 @@ class EvalConfig:
     """Number of environments to evaluate"""
     deterministic: bool = True
     """Whether to use deterministic actions for evaluation"""
-    n_steps: int = 200
+    n_steps: int = 1000
     """Number of steps to evaluate"""
 
     # Rendering configuration
     render: bool = True
     """Whether to render the environment"""
-    render_fps: int = 20
+    render_fps: int = 125
     """FPS for the output video"""
     output_path: Path = run_path / "artifacts" / "videos"
     """Path to save the output video"""
@@ -85,30 +87,26 @@ def main(config: EvalConfig):
     )
 
     env_for_rendering = env
-
-    env = VecFrameStack(env, n_stack=config.n_frames_stack)
-    env = VecTransposeImage(env)
-
-    # Load normalization stats if provided
-    vecnormalize_path = config.checkpoint_path.parent.parent / "vecnormalize.pkl"
-    if vecnormalize_path.exists():
-        print(f"Loading normalization stats from: {vecnormalize_path}")
-        env = VecNormalize.load(vecnormalize_path, env)
-        env.training = False
-        env.norm_reward = False
-
-    model = PPO.load(
-        config.checkpoint_path,
-        env=env,
-        custom_objects={
-            "features_extractor_class": CustomCNN,
-            "features_extractor_kwargs": dict(
-                features_dim=256, num_frames=config.n_frames_stack
-            ),
-        },
-        device=config.device,
-        seed=config.seed,
-    )
+    if config.checkpoint_path.name.startswith("ppo"):
+        model = PPO.load(
+            config.checkpoint_path,
+            env=env,
+            device=config.device,
+            seed=config.seed,
+        )
+        model_type = "ppo"
+    elif config.checkpoint_path.name.startswith("td3"):
+        model = TD3.load(
+            config.checkpoint_path,
+            env=env,
+            device=config.device,
+            seed=config.seed,
+        )
+        model_type = "td3"
+    else:
+        raise ValueError(
+            f"Unknown model type: {config.checkpoint_path.parent.parent.name}"
+        )
 
     print(f"Model loaded successfully. Starting evaluation for {config.n_steps} steps.")
 
@@ -133,9 +131,11 @@ def main(config: EvalConfig):
     # Save video
     if config.render:
         video_path = config.output_path / (
-            config.env_id
+            model_type
             + "_"
-            + config.checkpoint_path.stem.split("_")[1]
+            + config.env_id
+            + "_"
+            + config.checkpoint_path.stem.split("_")[2]
             + "_"
             + str(config.seed)
         )

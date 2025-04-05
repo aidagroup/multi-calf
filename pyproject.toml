@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "gymnasium==0.29.0",
+    "gymnasium[mujoco]==0.29.0",
     "matplotlib==3.9.2",
     "numpy==1.26.4",
     "pandas==2.2.3",

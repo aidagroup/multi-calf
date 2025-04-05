@@ -52,8 +52,13 @@ class TD3WrappedAgent(WrappedAgent):
         return self.model.policy.predict(obs, deterministic=self.deterministic)[0]
 
     def get_value(self, obs: np.ndarray) -> float:
-        action = self.model.policy.predict(obs, deterministic=True)[0]
-        return self.model.critic(obs, action)
+        with torch.no_grad():
+            action = self.model.policy.predict(obs, deterministic=True)[0]
+            critics = self.model.critic(
+                torch.tensor(obs, device=self.model.device),
+                torch.tensor(action, device=self.model.device),
+            )
+            return np.maximum(critics[0].cpu().numpy(), critics[1].cpu().numpy())
 
 
 def wrap_model(model: Union[PPO, TD3], deterministic: bool = True) -> WrappedAgent:
@@ -87,15 +92,37 @@ class MultiCALFWrapper(Wrapper):
 
     def step(self, base_action: np.ndarray):
         base_value = self.model_base.get_value(self.obs)
-        value_increase = base_value - self.best_value - self.calf_change_rate
-        self.best_value = np.where(value_increase >= 0, base_value, self.best_value)
+        base_value_increase = base_value - self.best_base_value
 
-        is_relaxprob_fired = (
-            self.np_rng.random(size=value_increase.shape) < self.relaxprob
+        alt_value = self.model_alt.get_value(self.obs)
+        alt_value_increase = alt_value - self.best_alt_value
+
+        # is_relaxprob_fired = (
+        #     self.np_rng.random(size=value_increase.shape) < self.relaxprob
+        # )
+        # is_base_value_increase = value_increase >= 0
+        # is_base_action_applied = is_base_value_increase != is_relaxprob_fired
+
+        is_base_action_applied = self.np_rng.random(
+            size=base_value_increase.shape
+        ) < self.relaxprob * (
+            (base_value_increase / self.best_base_value)
+            > (alt_value_increase / self.best_alt_value)
         )
-        is_base_value_increase = value_increase >= 0
-        is_base_action_applied = is_base_value_increase != is_relaxprob_fired
 
+        self.best_base_value = np.where(
+            base_value_increase >= self.calf_change_rate,
+            base_value,
+            self.best_base_value,
+        )
+        self.best_alt_value = np.where(
+            alt_value_increase >= self.calf_change_rate,
+            alt_value,
+            self.best_alt_value,
+        )
+
+        # print("BASE: ", np.mean(self.model_base.get_value(self.obs)))
+        # print("ALT:  ", np.mean(self.model_alt.get_value(self.obs)))
         action = np.where(
             is_base_action_applied,
             base_action,
@@ -112,14 +139,14 @@ class MultiCALFWrapper(Wrapper):
             for i in range(len(info)):
                 info[i] |= {
                     "calf.relaxprob": np.copy(self.relaxprob),
-                    "calf.increase_happened": (value_increase >= 0)[i, 0],
+                    "calf.increase_happened": (base_value_increase >= 0)[i, 0],
                     "calf.base_action_applied": is_base_action_applied[i, 0],
                     "calf.action": action[i, :],
                 }
         else:  # single env
             info |= {
                 "calf.relaxprob": np.copy(self.relaxprob),
-                "calf.increase_happened": value_increase >= 0,
+                "calf.increase_happened": base_value_increase >= 0,
                 "calf.base_action_applied": is_base_action_applied,
                 "calf.action": action,
             }
@@ -136,5 +163,6 @@ class MultiCALFWrapper(Wrapper):
         else:
             self.obs = reset_output
 
-        self.best_value = self.model_base.get_value(self.obs)
+        self.best_base_value = self.model_base.get_value(self.obs)
+        self.best_alt_value = self.model_alt.get_value(self.obs)
         return np.copy(self.obs)
