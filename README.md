@@ -2,6 +2,17 @@
 
 This repository implements the Multi-CALF (Critic As a Lyapunov Function) approach for reinforcement learning, ensuring stability and safety during training and deployment.
 
+
+<p align="center">
+    <img src="gfx/ppo.gif" height="180" alt="ppo" style="vertical-align:middle;" />
+    <img src="gfx/td3.gif" height="180" alt="td3" style="vertical-align:middle;" />
+    <img src="gfx/mcalf.gif" height="180" alt="mcalf" style="vertical-align:middle;" />
+</p>
+<div align="center">
+  <em>PPO vs. TD3 vs. Multi-CALF on evaluation</em>
+</div>
+
+
 ## Overview
 
 Multi-CALF is a technique that leverages the critic function as a Lyapunov function to guarantee stability in reinforcement learning agents. The approach facilitates safe exploration and robust policy development by using multiple critics to validate actions before execution.
