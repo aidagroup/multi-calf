@@ -8,6 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional, Union, Literal
 from loguru import logger
+import cv2
 
 # Set MuJoCo to use software rendering with OSMesa before importing any mujoco-related libraries
 os.environ["MUJOCO_GL"] = "osmesa"
@@ -157,6 +158,7 @@ def main(config: EvalConfig):
 
     if config.render:
         frames = {i: [] for i in range(config.n_envs)}
+        distances = {i: 0 for i in range(config.n_envs)}
     episode_rewards = {i: [] for i in range(config.n_envs)}
     episode_lengths = {i: 0 for i in range(config.n_envs)}
     episode_counts = {i: 0 for i in range(config.n_envs)}
@@ -207,7 +209,36 @@ def main(config: EvalConfig):
             rendered_frames = env_for_rendering.get_images()
             for i in range(config.n_envs):
                 if rendered_frames[i] is not None:
-                    frames[i].append(rendered_frames[i])
+                    total_reward = sum(episode_rewards[i])
+                    distances[i] += obs[i][5] * 0.002
+                    # Add text with total reward to the frame
+                    frame = rendered_frames[i].copy()
+                    reward_text = f"Total Reward: {total_reward:.2f}"
+                    distance_text = f"Distance: {distances[i]:.2f}"
+
+                    # First line - text
+                    cv2.putText(
+                        frame,
+                        reward_text,
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                    cv2.putText(
+                        frame,
+                        distance_text,
+                        (10, 70),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+
+                    frames[i].append(frame)
 
     # Save video
     if config.render:
