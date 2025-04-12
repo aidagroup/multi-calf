@@ -3,7 +3,7 @@
 This repository implements the Multi-CALF approach — a method of combining two policies into a new, more effective one. 
 
 <p align="center">
-    <img src="gfx/hopper.gif" height="250" alt="multi-calf" style="vertical-align:middle;" />
+    <img src="gfx/hopper.gif" alt="multi-calf" style="vertical-align:middle;" />
 </p>
 <div align="center">
   <em>Demonstration of a Multi-CALF agent combining PPO and TD3 policies. Both policies were tuned to near-optimal performance on the Hopper-v4 environment with 10d observation space. The Hopper is rewarded for forward movement. The combined MCALF agent achieves superior performance, as shown in the animation above and outperforms the individual near-optimal policies through their strategic combination.</em>
